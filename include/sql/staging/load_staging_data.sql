@@ -1,0 +1,12 @@
+-- Load data from CSV files to staging tables
+-- Note: This is typically done via Python/Pandas in Airflow DAGs
+-- This file is for reference or manual loading
+
+-- Example COPY commands (adjust paths as needed)
+-- COPY staging.transactions FROM '/path/to/transactions.csv' WITH CSV HEADER;
+-- COPY staging.customers FROM '/path/to/customers.csv' WITH CSV HEADER;
+-- COPY staging.accounts FROM '/path/to/accounts.csv' WITH CSV HEADER;
+-- COPY staging.branches FROM '/path/to/branches.csv' WITH CSV HEADER;
+-- COPY staging.channels FROM '/path/to/channels.csv' WITH CSV HEADER;
+-- COPY staging.fraud_labels FROM '/path/to/fraud_labels.csv' WITH CSV HEADER;
+-- COPY staging.dim_date FROM '/path/to/dim_date.csv' WITH CSV HEADER;

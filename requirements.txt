@@ -1,3 +1,6 @@
-pandas
-psycopg2-binary
-sqlalchemy
+pandas>=2.0.0
+numpy>=1.24.0
+psycopg2-binary>=2.9.0
+apache-airflow==3.0.0
+apache-airflow-providers-postgres>=5.0.0
+python-dateutil>=2.8.0

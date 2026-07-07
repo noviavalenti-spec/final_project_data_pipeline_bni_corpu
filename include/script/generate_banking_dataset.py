@@ -1,377 +1,263 @@
+
+## 2. Project Files
+
+Now let me create the essential project files:
+
+### File: `include/script/generate_banking_dataset.py`
+
+```python
+#!/usr/bin/env python3
 """
-generate_banking_dataset.py
-============================
-Script untuk generate semua dataset studi kasus Banking ETL Pipeline.
-Tidak perlu download dari Kaggle — semua data di-generate di sini.
-
-Cara pakai:
-    pip install pandas
-    python generate_banking_dataset.py
-
-Output (disimpan di folder ./dataset/):
-    branches.csv        -> sumber dim_branch
-    channels.csv        -> sumber dim_channel
-    dim_date.csv        -> sumber dim_date
-    customers.csv       -> sumber dim_customer
-    accounts.csv        -> sumber dim_account
-    transactions.csv    -> sumber fact_transactions
-    fraud_labels.csv    -> sumber flag fraud
+Script to generate synthetic banking dataset for ETL pipeline.
+Generates 7 CSV files with realistic banking data.
 """
 
-import os
-import random
-import string
 import pandas as pd
-from datetime import date, datetime, timedelta
+import numpy as np
+from datetime import datetime, timedelta
+import random
+import os
 
-# ─── Setup ────────────────────────────────────────────────────────────────────
+# Set random seed for reproducibility
+np.random.seed(42)
 random.seed(42)
 
-OUTPUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "dataset")
-os.makedirs(OUTPUT_DIR, exist_ok=True)
+# Create dataset directory
+os.makedirs('include/dataset', exist_ok=True)
 
-DATE_START = date(2023, 1, 1)
-DATE_END   = date(2025, 12, 31)
+print(" Generating Banking Dataset...")
+print("=" * 50)
 
-print("=" * 60)
-print("  Banking ETL Case Study — Dataset Generator")
-print("=" * 60)
+# 1. Generate dim_date.csv (2023-2025)
+print("\n📅 Generating dim_date.csv...")
+date_range = pd.date_range(start='2023-01-01', end='2025-12-31', freq='D')
+dim_date = pd.DataFrame({
+    'date_id': range(1, len(date_range) + 1),
+    'full_date': date_range,
+    'year': date_range.year,
+    'quarter': date_range.quarter,
+    'month': date_range.month,
+    'month_name': date_range.strftime('%B'),
+    'day_name': date_range.strftime('%A'),
+    'is_holiday': np.where((date_range.dayofweek >= 5) | 
+                          (date_range.month == 12) | 
+                          (date_range.month == 1), 1, 0)
+})
+dim_date.to_csv('include/dataset/dim_date.csv', index=False)
+print(f"   ✓ Generated {len(dim_date)} date records (2023-2025)")
 
+# 2. Generate dim_customer.csv
+print("\n👥 Generating dim_customer.csv...")
+n_customers = 2000
+first_names = ['Ahmad', 'Budi', 'Citra', 'Dewi', 'Eko', 'Fitri', 'Gunawan', 'Hani', 
+               'Indra', 'Joko', 'Kartika', 'Lina', 'Made', 'Nina', 'Oki', 'Putu',
+               'Rudi', 'Siti', 'Tono', 'Utami', 'Wawan', 'Yuni', 'Zainal', 'Anisa', 'Bambang']
+last_names = ['Santoso', 'Wijaya', 'Kusuma', 'Putri', 'Nugroho', 'Lestari', 'Pratama', 
+              'Sari', 'Hidayat', 'Wulandari', 'Rahman', 'Permata', 'Setiawan', 'Agustina']
 
-# ─── Helper functions ─────────────────────────────────────────────────────────
-def rand_date(start, end):
-    delta = (end - start).days
-    return start + timedelta(days=random.randint(0, delta))
+customers = []
+for i in range(1, n_customers + 1):
+    first = random.choice(first_names)
+    last = random.choice(last_names)
+    segment = random.choices(['Retail', 'Priority', 'VIP'], weights=[0.7, 0.2, 0.1])[0]
+    
+    if segment == 'Retail':
+        credit_score = random.randint(300, 700)
+        salary = random.randint(3000000, 15000000)
+    elif segment == 'Priority':
+        credit_score = random.randint(650, 800)
+        salary = random.randint(15000000, 50000000)
+    else:  # VIP
+        credit_score = random.randint(750, 850)
+        salary = random.randint(50000000, 200000000)
+    
+    customers.append({
+        'customer_id': i,
+        'full_name': f"{first} {last}",
+        'gender': random.choice(['Male', 'Female']),
+        'segment': segment,
+        'city': random.choice(['Jakarta', 'Surabaya', 'Bandung', 'Medan', 'Semarang', 
+                              'Makassar', 'Palembang', 'Tangerang', 'Depok', 'Bekasi']),
+        'province': random.choice(['DKI Jakarta', 'Jawa Barat', 'Jawa Timur', 'Jawa Tengah', 
+                                  'Sumatera Utara', 'Sulawesi Selatan', 'Sumatera Selatan']),
+        'credit_score': credit_score,
+        'salary': salary
+    })
 
-def rand_phone():
-    prefix = random.choice(["0812","0813","0821","0822","0851","0852","0857","0858","0877","0878"])
-    return prefix + "".join([str(random.randint(0,9)) for _ in range(8)])
+dim_customer = pd.DataFrame(customers)
+dim_customer.to_csv('include/dataset/customers.csv', index=False)
+print(f"   ✓ Generated {len(dim_customer)} customer records")
 
-def rand_email(name):
-    domains = ["gmail.com","yahoo.com","outlook.com","mail.com","icloud.com"]
-    slug = name.lower().replace(" ","").replace(".","")[:10]
-    return f"{slug}{random.randint(1,999)}@{random.choice(domains)}"
-
-FIRST_NAMES_M = ["Budi","Agus","Eko","Doni","Rizki","Fajar","Hendra","Ivan","Joko","Kevin",
-                 "Lukman","Maman","Nanda","Oki","Putra","Qori","Rudi","Sandi","Tono","Umar",
-                 "Vino","Wahyu","Xander","Yanuar","Zaki","Aditya","Bagas","Cahyo","Dimas","Eko"]
-FIRST_NAMES_F = ["Siti","Dewi","Rina","Fitri","Ayu","Bella","Citra","Diana","Eka","Feni",
-                 "Gita","Hana","Indah","Julia","Kartika","Liana","Maya","Nita","Olga","Putri",
-                 "Qita","Rini","Sari","Tini","Ulfa","Vera","Winda","Xena","Yuli","Zara"]
-LAST_NAMES   = ["Santoso","Wijaya","Kusuma","Prasetyo","Susanto","Rahayu","Wibowo","Setiawan",
-                "Hartono","Nugroho","Saputra","Hidayat","Purnomo","Wahyudi","Mulyono",
-                "Gunawan","Hermawan","Siregar","Nasution","Lubis","Simanjuntak","Harahap",
-                "Panjaitan","Manurung","Sihombing","Lestari","Anggraini","Permata","Safitri"]
-CITIES       = ["Jakarta","Surabaya","Bandung","Medan","Bekasi","Tangerang","Depok","Semarang",
-                "Makassar","Palembang","Bogor","Pekanbaru","Batam","Denpasar","Yogyakarta",
-                "Malang","Solo","Banjarmasin","Pontianak","Balikpapan","Manado","Cirebon"]
-PROVINCES    = ["DKI Jakarta","Jawa Barat","Jawa Tengah","Jawa Timur","Banten",
-                "Sumatera Utara","Sumatera Selatan","Riau","Bali","Sulawesi Selatan",
-                "Kalimantan Timur","DI Yogyakarta","Kepulauan Riau","Kalimantan Selatan"]
-
-
-# ══════════════════════════════════════════════════════════════════
-# 1. BRANCHES  (25 rows)
-# ══════════════════════════════════════════════════════════════════
-print("\n[1/7] Generating branches.csv ...")
-
-BRANCH_DATA = [
-    (1,"KCU-JKT01","KCU Jakarta Pusat",      "Jakarta",      "DKI Jakarta",        "JABODETABEK","KCU","2010-01-15"),
-    (2,"KCU-JKT02","KCU Jakarta Selatan",    "Jakarta",      "DKI Jakarta",        "JABODETABEK","KCU","2011-03-10"),
-    (3,"KCU-JKT03","KCU Jakarta Utara",      "Jakarta",      "DKI Jakarta",        "JABODETABEK","KCU","2012-06-01"),
-    (4,"KCP-BKS01","KCP Bekasi Jaya",        "Bekasi",       "Jawa Barat",         "JABODETABEK","KCP","2013-08-20"),
-    (5,"KCP-TGR01","KCP Tangerang Selatan",  "Tangerang",    "Banten",             "JABODETABEK","KCP","2014-02-14"),
-    (6,"KCP-DPK01","KCP Depok Margonda",     "Depok",        "Jawa Barat",         "JABODETABEK","KCP","2015-05-05"),
-    (7,"KK-BGR01", "KK Bogor Pajajaran",     "Bogor",        "Jawa Barat",         "JABODETABEK","KK", "2016-09-12"),
-    (8,"KCU-BDG01","KCU Bandung Asia Afrika","Bandung",      "Jawa Barat",         "JABAR",      "KCU","2009-07-01"),
-    (9,"KCP-BDG02","KCP Bandung Dago",       "Bandung",      "Jawa Barat",         "JABAR",      "KCP","2014-11-03"),
-    (10,"KCP-CRM01","KCP Cirebon Kartini",   "Cirebon",      "Jawa Barat",         "JABAR",      "KCP","2017-03-20"),
-    (11,"KCU-SBY01","KCU Surabaya Tunjungan","Surabaya",     "Jawa Timur",         "JATIM",      "KCU","2008-04-15"),
-    (12,"KCU-SBY02","KCU Surabaya Rungkut",  "Surabaya",     "Jawa Timur",         "JATIM",      "KCU","2012-08-08"),
-    (13,"KCP-MLG01","KCP Malang Kawi",       "Malang",       "Jawa Timur",         "JATIM",      "KCP","2016-01-10"),
-    (14,"KCP-JBR01","KCP Jember Gajah Mada", "Jember",       "Jawa Timur",         "JATIM",      "KCP","2018-06-25"),
-    (15,"KCU-SMG01","KCU Semarang Pemuda",   "Semarang",     "Jawa Tengah",        "JATENG",     "KCU","2007-12-01"),
-    (16,"KCP-SOL01","KCP Solo Slamet Riyadi","Solo",         "Jawa Tengah",        "JATENG",     "KCP","2013-04-17"),
-    (17,"KCP-YGY01","KCP Yogyakarta Malioboro","Yogyakarta", "DI Yogyakarta",      "JATENG",     "KCP","2011-10-10"),
-    (18,"KCU-MKS01","KCU Makassar Ahmad Yani","Makassar",    "Sulawesi Selatan",   "SULAWESI",   "KCU","2009-02-28"),
-    (19,"KCP-MKS02","KCP Makassar Panakukang","Makassar",    "Sulawesi Selatan",   "SULAWESI",   "KCP","2015-07-07"),
-    (20,"KCU-MDN01","KCU Medan Imam Bonjol", "Medan",        "Sumatera Utara",     "SUMUT",      "KCU","2006-11-11"),
-    (21,"KCP-MDN02","KCP Medan Helvetia",    "Medan",        "Sumatera Utara",     "SUMUT",      "KCP","2014-09-30"),
-    (22,"KCU-PLG01","KCU Palembang Sudirman","Palembang",    "Sumatera Selatan",   "SUMSEL",     "KCU","2010-05-20"),
-    (23,"KCU-PKB01","KCU Pekanbaru Sudirman","Pekanbaru",    "Riau",               "SUMSEL",     "KCU","2012-03-15"),
-    (24,"KCU-DPS01","KCU Denpasar Gajah Mada","Denpasar",    "Bali",               "BALI-NUSA",  "KCU","2008-08-08"),
-    (25,"KCP-DPS02","KCP Kuta Legian",       "Badung",       "Bali",               "BALI-NUSA",  "KCP","2016-12-01"),
+# 3. Generate dim_branch.csv
+print("\n🏢 Generating dim_branch.csv...")
+branches_data = [
+    ('B001', 'Jakarta Pusat', 'DKI Jakarta', 'Jakarta', 'Urban'),
+    ('B002', 'Jakarta Selatan', 'DKI Jakarta', 'Jakarta', 'Urban'),
+    ('B003', 'Surabaya', 'Jawa Timur', 'Surabaya', 'Urban'),
+    ('B004', 'Bandung', 'Jawa Barat', 'Bandung', 'Urban'),
+    ('B005', 'Medan', 'Sumatera Utara', 'Medan', 'Urban'),
+    ('B006', 'Semarang', 'Jawa Tengah', 'Semarang', 'Urban'),
+    ('B007', 'Makassar', 'Sulawesi Selatan', 'Makassar', 'Urban'),
+    ('B008', 'Palembang', 'Sumatera Selatan', 'Palembang', 'Urban'),
+    ('B009', 'Tangerang', 'Banten', 'Jakarta', 'Suburban'),
+    ('B010', 'Depok', 'Jawa Barat', 'Jakarta', 'Suburban'),
+    ('B011', 'Bekasi', 'Jawa Barat', 'Jakarta', 'Suburban'),
+    ('B012', 'Bogor', 'Jawa Barat', 'Bandung', 'Suburban'),
+    ('B013', 'Malang', 'Jawa Timur', 'Surabaya', 'Suburban'),
+    ('B014', 'Yogyakarta', 'DI Yogyakarta', 'Semarang', 'Urban'),
+    ('B015', 'Denpasar', 'Bali', 'Denpasar', 'Urban'),
+    ('B016', 'Balikpapan', 'Kalimantan Timur', 'Balikpapan', 'Urban'),
+    ('B017', 'Banjarmasin', 'Kalimantan Selatan', 'Banjarmasin', 'Urban'),
+    ('B018', 'Manado', 'Sulawesi Utara', 'Manado', 'Urban'),
+    ('B019', 'Padang', 'Sumatera Barat', 'Padang', 'Urban'),
+    ('B020', 'Pekanbaru', 'Riau', 'Pekanbaru', 'Urban'),
+    ('B021', 'Batam', 'Kepulauan Riau', 'Batam', 'Urban'),
+    ('B022', 'Samarinda', 'Kalimantan Timur', 'Samarinda', 'Urban'),
+    ('B023', 'Jambi', 'Jambi', 'Jambi', 'Rural'),
+    ('B024', 'Bengkulu', 'Bengkulu', 'Bengkulu', 'Rural'),
+    ('B025', 'Ambon', 'Maluku', 'Ambon', 'Rural'),
 ]
 
-df_branches = pd.DataFrame(BRANCH_DATA, columns=[
-    "branch_id","branch_code","branch_name","city","province",
-    "region","branch_type","open_date"
-])
-df_branches["is_active"] = True
-df_branches.to_csv(f"{OUTPUT_DIR}/branches.csv", index=False)
-print(f"    -> {len(df_branches)} rows  |  {OUTPUT_DIR}/branches.csv")
+dim_branch = pd.DataFrame(branches_data, 
+                          columns=['branch_code', 'branch_name', 'province', 'city', 'region'])
+dim_branch['branch_id'] = range(1, len(dim_branch) + 1)
+dim_branch['branch_type'] = dim_branch['region'].map({
+    'Urban': 'Main Branch',
+    'Suburban': 'Sub Branch',
+    'Rural': 'Mini Branch'
+})
+dim_branch = dim_branch[['branch_id', 'branch_code', 'branch_name', 'city', 'province', 
+                         'region', 'branch_type']]
+dim_branch.to_csv('include/dataset/branches.csv', index=False)
+print(f"   ✓ Generated {len(dim_branch)} branch records")
 
+# 4. Generate dim_channel.csv
+print("\n📱 Generating dim_channel.csv...")
+dim_channel = pd.DataFrame({
+    'channel_id': [1, 2, 3, 4, 5, 6],
+    'channel_code': ['ATM', 'MOB', 'TEL', 'INT', 'BRN', 'POS'],
+    'channel_name': ['ATM', 'Mobile Banking', 'Teller', 'Internet Banking', 'Branch Office', 'POS'],
+    'channel_category': ['Digital', 'Digital', 'Traditional', 'Digital', 'Traditional', 'Digital'],
+    'is_digital': [1, 1, 0, 1, 0, 1]
+})
+dim_channel.to_csv('include/dataset/channels.csv', index=False)
+print(f"   ✓ Generated {len(dim_channel)} channel records")
 
-# ══════════════════════════════════════════════════════════════════
-# 2. CHANNELS  (6 rows)
-# ══════════════════════════════════════════════════════════════════
-print("\n[2/7] Generating channels.csv ...")
-
-df_channels = pd.DataFrame([
-    (1,"ATM",    "ATM",                "PHYSICAL",False, "Anjungan Tunai Mandiri"),
-    (2,"MB",     "Mobile Banking",     "DIGITAL", True,  "Transaksi via aplikasi mobile"),
-    (3,"IB",     "Internet Banking",   "DIGITAL", True,  "Transaksi via browser / web"),
-    (4,"TELLER", "Teller",             "PHYSICAL",False, "Transaksi di counter cabang"),
-    (5,"EDC",    "EDC / Mesin Kasir",  "PHYSICAL",False, "Electronic Data Capture di merchant"),
-    (6,"CS",     "Call Center / IVR",  "DIGITAL", True,  "Transaksi via telepon"),
-], columns=["channel_id","channel_code","channel_name",
-            "channel_category","is_digital","description"])
-df_channels.to_csv(f"{OUTPUT_DIR}/channels.csv", index=False)
-print(f"    -> {len(df_channels)} rows  |  {OUTPUT_DIR}/channels.csv")
-
-
-# ══════════════════════════════════════════════════════════════════
-# 3. DIM DATE  (2023-01-01 s/d 2025-12-31  =  1095 rows)
-# ══════════════════════════════════════════════════════════════════
-print("\n[3/7] Generating dim_date.csv ...")
-
-ID_HOLIDAYS = {
-    date(2023,1,1),date(2023,1,22),date(2023,3,22),date(2023,4,7),
-    date(2023,4,21),date(2023,4,22),date(2023,4,23),date(2023,5,1),
-    date(2023,5,18),date(2023,5,29),date(2023,6,1),date(2023,6,29),
-    date(2023,8,17),date(2023,12,25),
-    date(2024,1,1),date(2024,2,8),date(2024,2,9),date(2024,3,11),
-    date(2024,3,29),date(2024,4,10),date(2024,4,11),date(2024,5,1),
-    date(2024,5,9),date(2024,5,23),date(2024,6,1),date(2024,8,17),
-    date(2024,12,25),
-    date(2025,1,1),date(2025,3,31),date(2025,4,18),date(2025,5,1),
-    date(2025,5,29),date(2025,8,17),date(2025,12,25),
-}
-MONTH_ID = ["","Januari","Februari","Maret","April","Mei","Juni",
-            "Juli","Agustus","September","Oktober","November","Desember"]
-DAY_ID   = ["","Senin","Selasa","Rabu","Kamis","Jumat","Sabtu","Minggu"]
-
-rows_date = []
-d = DATE_START
-while d <= DATE_END:
-    rows_date.append({
-        "date_id"      : int(d.strftime("%Y%m%d")),
-        "full_date"    : str(d),
-        "year"         : d.year,
-        "quarter"      : (d.month - 1) // 3 + 1,
-        "month"        : d.month,
-        "month_name"   : MONTH_ID[d.month],
-        "week_of_year" : d.isocalendar()[1],
-        "day_of_month" : d.day,
-        "day_of_week"  : d.isoweekday(),
-        "day_name"     : DAY_ID[d.isoweekday()],
-        "is_weekend"   : d.isoweekday() >= 6,
-        "is_holiday"   : d in ID_HOLIDAYS,
-    })
-    d += timedelta(days=1)
-
-df_dates = pd.DataFrame(rows_date)
-df_dates.to_csv(f"{OUTPUT_DIR}/dim_date.csv", index=False)
-print(f"    -> {len(df_dates)} rows  |  {OUTPUT_DIR}/dim_date.csv")
-
-
-# ══════════════════════════════════════════════════════════════════
-# 4. CUSTOMERS  (2.000 rows)
-# ══════════════════════════════════════════════════════════════════
-print("\n[4/7] Generating customers.csv  (2.000 rows) ...")
-
-SEGMENTS = ["RETAIL","PRIORITY","VIP"]
-SEG_W    = [80, 15, 5]
-JOBS     = ["PNS","TNI/POLRI","Karyawan Swasta","Wirausaha",
-            "Pensiunan","Profesional","Pelajar/Mahasiswa","Ibu Rumah Tangga"]
-
-branch_ids = df_branches["branch_id"].tolist()
-
-rows_cust = []
-for i in range(1, 2001):
-    gender = random.choice(["M","F"])
-    fname  = random.choice(FIRST_NAMES_M if gender=="M" else FIRST_NAMES_F)
-    lname  = random.choice(LAST_NAMES)
-    name   = f"{fname} {lname}"
-    birth  = rand_date(date(1955,1,1), date(2005,12,31))
-    reg    = rand_date(date(2010,1,1), date(2023,12,31))
-    rows_cust.append({
-        "customer_id"      : i,
-        "customer_code"    : f"CST{i:06d}",
-        "full_name"        : name,
-        "gender"           : gender,
-        "birth_date"       : str(birth),
-        "email"            : rand_email(name),
-        "phone"            : rand_phone(),
-        "segment"          : random.choices(SEGMENTS, weights=SEG_W)[0],
-        "job_segment"      : random.choice(JOBS),
-        "city"             : random.choice(CITIES),
-        "province"         : random.choice(PROVINCES),
-        "registration_date": str(reg),
-        "branch_id"        : random.choice(branch_ids),
-        "is_active"        : random.choices([True,False], weights=[90,10])[0],
-        "credit_score"     : random.randint(400, 900),
-        "estimated_salary" : random.randrange(3_000_000, 50_000_001, 500_000),
-    })
-
-df_customers = pd.DataFrame(rows_cust)
-df_customers.to_csv(f"{OUTPUT_DIR}/customers.csv", index=False)
-print(f"    -> {len(df_customers)} rows  |  {OUTPUT_DIR}/customers.csv")
-
-
-# ══════════════════════════════════════════════════════════════════
-# 5. ACCOUNTS  (~3.500 rows)
-# ══════════════════════════════════════════════════════════════════
-print("\n[5/7] Generating accounts.csv  (~3.500 rows) ...")
-
-PRODUCTS = {
-    "TABUNGAN" : ["Tabungan Reguler","Tabungan Junior","Tabungan Bisnis","Tabungan Online"],
-    "GIRO"     : ["Giro Reguler","Giro Bisnis","Giro Valas"],
-    "DEPOSITO" : ["Deposito 1 Bulan","Deposito 3 Bulan","Deposito 6 Bulan","Deposito 12 Bulan"],
-}
-ATYPES = ["TABUNGAN","TABUNGAN","TABUNGAN","GIRO","DEPOSITO"]
-
-rows_acc = []
-acc_id = 1
-for cust_row in rows_cust:
-    n = random.choices([1,2,3], weights=[60,30,10])[0]
-    for _ in range(n):
-        atype   = random.choice(ATYPES)
-        open_d  = rand_date(date(2010,1,1), date(2024,6,30))
-        closed  = random.random() < 0.05
-        close_d = rand_date(open_d, date(2025,6,30)) if closed else None
-        rows_acc.append({
-            "account_id"   : acc_id,
-            "account_no"   : f"000{acc_id:08d}",
-            "account_type" : atype,
-            "product_name" : random.choice(PRODUCTS[atype]),
-            "currency"     : random.choices(["IDR","USD"], weights=[95,5])[0],
-            "open_date"    : str(open_d),
-            "close_date"   : str(close_d) if close_d else None,
-            "status"       : "CLOSED" if closed else random.choices(["ACTIVE","DORMANT"], weights=[90,10])[0],
-            "interest_rate": round(random.uniform(0.5, 7.5), 2),
-            "customer_id"  : cust_row["customer_id"],
-            "branch_id"    : cust_row["branch_id"],
-        })
-        acc_id += 1
-
-df_accounts = pd.DataFrame(rows_acc)
-df_accounts.to_csv(f"{OUTPUT_DIR}/accounts.csv", index=False)
-print(f"    -> {len(df_accounts)} rows  |  {OUTPUT_DIR}/accounts.csv")
-
-
-# ══════════════════════════════════════════════════════════════════
-# 6. TRANSACTIONS  (50.000 rows)
-# ══════════════════════════════════════════════════════════════════
-print("\n[6/7] Generating transactions.csv  (50.000 rows) ...")
-
-active_accs = df_accounts[df_accounts["status"]=="ACTIVE"]["account_id"].tolist()
-acc_to_cust  = df_accounts.set_index("account_id")["customer_id"].to_dict()
-acc_to_branch= df_accounts.set_index("account_id")["branch_id"].to_dict()
-
-TRX_TYPES = ["DEBIT","KREDIT","TRANSFER_OUT","TRANSFER_IN","PEMBAYARAN","TARIK_TUNAI","SETOR_TUNAI"]
-TRX_W     = [25,25,15,15,10,5,5]
-STATUSES  = ["SUCCESS","SUCCESS","SUCCESS","SUCCESS","SUCCESS","FAILED","PENDING"]
-CH_IDS    = df_channels["channel_id"].tolist()
-CH_W      = [20,35,15,20,5,5]
-
-all_dates = [DATE_START + timedelta(days=i) for i in range((DATE_END - DATE_START).days + 1)]
-HOUR_W    = [1,1,1,1,1,1,2,5,8,8,8,8,8,8,7,7,6,5,5,4,3,2,2,1]
-
-rows_trx = []
-for trx_id in range(1, 50_001):
-    acc_id    = random.choice(active_accs)
-    cust_id   = acc_to_cust[acc_id]
-    branch_id = acc_to_branch[acc_id]
-    trx_date  = random.choice(all_dates)
-    hour      = random.choices(range(24), weights=HOUR_W)[0]
-    trx_ts    = datetime(trx_date.year, trx_date.month, trx_date.day,
-                         hour, random.randint(0,59), random.randint(0,59))
-    ttype     = random.choices(TRX_TYPES, weights=TRX_W)[0]
-    ch_id     = random.choices(CH_IDS, weights=CH_W)[0]
-    status    = random.choices(STATUSES)[0]
-
-    if ttype in ("TRANSFER_OUT","TRANSFER_IN","PEMBAYARAN"):
-        amount = round(random.uniform(50_000, 10_000_000))
-    elif ttype in ("TARIK_TUNAI","SETOR_TUNAI"):
-        amount = random.choice([100_000,200_000,300_000,500_000,1_000_000,2_000_000])
+# 5. Generate dim_account.csv
+print("\n💳 Generating dim_account.csv...")
+n_accounts = 3000
+accounts = []
+for i in range(1, n_accounts + 1):
+    customer_id = random.randint(1, n_customers)
+    customer_segment = dim_customer[dim_customer['customer_id'] == customer_id]['segment'].values[0]
+    
+    if customer_segment == 'VIP':
+        product = random.choices(['Tabungan', 'Giro', 'Deposito'], weights=[0.3, 0.3, 0.4])[0]
+    elif customer_segment == 'Priority':
+        product = random.choices(['Tabungan', 'Giro', 'Deposito'], weights=[0.5, 0.3, 0.2])[0]
     else:
-        amount = round(random.uniform(10_000, 5_000_000))
-
-    bal_before = round(random.uniform(100_000, 100_000_000))
-    bal_after  = bal_before - amount if ttype in ("DEBIT","TRANSFER_OUT","TARIK_TUNAI","PEMBAYARAN") \
-                 else bal_before + amount
-
-    rows_trx.append({
-        "transaction_id"   : trx_id,
-        "transaction_code" : f"TRX{trx_id:010d}",
-        "account_id"       : acc_id,
-        "customer_id"      : cust_id,
-        "branch_id"        : branch_id,
-        "channel_id"       : ch_id,
-        "transaction_date" : str(trx_date),
-        "transaction_at"   : trx_ts.strftime("%Y-%m-%d %H:%M:%S"),
-        "transaction_type" : ttype,
-        "amount"           : amount,
-        "balance_before"   : bal_before,
-        "balance_after"    : bal_after,
-        "status"           : status,
-        "reference_no"     : f"REF{trx_date.strftime('%Y%m%d')}{trx_id:08d}",
+        product = random.choices(['Tabungan', 'Giro', 'Deposito'], weights=[0.8, 0.15, 0.05])[0]
+    
+    accounts.append({
+        'account_id': i,
+        'account_no': f"{'0' * (10 - len(str(i)))}{i}",
+        'account_type': random.choice(['Saving', 'Checking']),
+        'product_name': product,
+        'currency': 'IDR',
+        'status': random.choices(['Active', 'Dormant', 'Closed'], weights=[0.85, 0.1, 0.05])[0],
+        'customer_id': customer_id
     })
 
-df_transactions = pd.DataFrame(rows_trx)
-df_transactions.to_csv(f"{OUTPUT_DIR}/transactions.csv", index=False)
-print(f"    -> {len(df_transactions)} rows  |  {OUTPUT_DIR}/transactions.csv")
+dim_account = pd.DataFrame(accounts)
+dim_account.to_csv('include/dataset/accounts.csv', index=False)
+print(f"   ✓ Generated {len(dim_account)} account records")
 
+# 6. Generate fraud_labels.csv
+print("\n🚨 Generating fraud_labels.csv...")
+n_transactions = 50000
+n_fraud = 432  # ~0.86% fraud rate
 
-# ══════════════════════════════════════════════════════════════════
-# 7. FRAUD LABELS  (~1% of SUCCESS transactions)
-# ══════════════════════════════════════════════════════════════════
-print("\n[7/7] Generating fraud_labels.csv ...")
+fraud_transactions = random.sample(range(1, n_transactions + 1), n_fraud)
+fraud_types = ['Unauthorized Transaction', 'Card Skimming', 'Phishing', 
+               'Account Takeover', 'Identity Theft', 'Money Laundering']
 
-FRAUD_TYPES = ["CARD_SKIMMING","PHISHING","ACCOUNT_TAKEOVER",
-               "UNUSUAL_AMOUNT","VELOCITY_ABUSE","SIM_SWAP"]
+fraud_labels = []
+for txn_id in fraud_transactions:
+    fraud_labels.append({
+        'transaction_id': txn_id,
+        'is_fraud': 1,
+        'fraud_type': random.choice(fraud_types),
+        'fraud_score': round(random.uniform(0.7, 1.0), 2),
+        'flagged_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    })
 
-rows_fraud = []
-for row in rows_trx:
-    if row["status"] == "SUCCESS" and random.random() < 0.012:
-        rows_fraud.append({
-            "transaction_id"  : row["transaction_id"],
-            "transaction_code": row["transaction_code"],
-            "is_fraud"        : True,
-            "fraud_type"      : random.choice(FRAUD_TYPES),
-            "fraud_score"     : round(random.uniform(0.70, 0.99), 4),
-            "flagged_at"      : row["transaction_at"],
-        })
+fraud_df = pd.DataFrame(fraud_labels)
+fraud_df.to_csv('include/dataset/fraud_labels.csv', index=False)
+print(f"   ✓ Generated {len(fraud_df)} fraud flag records")
 
-df_fraud = pd.DataFrame(rows_fraud)
-df_fraud.to_csv(f"{OUTPUT_DIR}/fraud_labels.csv", index=False)
-print(f"    -> {len(df_fraud)} rows  |  {OUTPUT_DIR}/fraud_labels.csv")
+# 7. Generate fact_transactions.csv
+print("\n💰 Generating fact_transactions.csv...")
+transactions = []
 
+for i in range(1, n_transactions + 1):
+    date_id = random.randint(1, len(dim_date))
+    account_id = random.randint(1, n_accounts)
+    customer_id = dim_account[dim_account['account_id'] == account_id]['customer_id'].values[0]
+    branch_id = random.randint(1, len(dim_branch))
+    channel_id = random.randint(1, len(dim_channel))
+    
+    # Transaction amount based on customer segment
+    customer_segment = dim_customer[dim_customer['customer_id'] == customer_id]['segment'].values[0]
+    
+    if customer_segment == 'VIP':
+        amount = round(random.lognormvariate(15, 2), 2)  # Higher amounts
+    elif customer_segment == 'Priority':
+        amount = round(random.lognormvariate(13, 2), 2)
+    else:
+        amount = round(random.lognormvariate(11, 2), 2)
+    
+    # Cap at reasonable maximum
+    amount = min(amount, 500000000)
+    
+    txn_type = random.choices(['Credit', 'Debit'], weights=[0.4, 0.6])[0]
+    
+    # Fraud transactions more likely to fail or have unusual patterns
+    if i in fraud_transactions:
+        status = random.choices(['SUCCESS', 'FAILED', 'PENDING'], weights=[0.3, 0.5, 0.2])[0]
+    else:
+        status = random.choices(['SUCCESS', 'FAILED', 'PENDING'], weights=[0.92, 0.05, 0.03])[0]
+    
+    transaction_date = dim_date[dim_date['date_id'] == date_id]['full_date'].values[0]
+    transaction_date = transaction_date + timedelta(
+        hours=random.randint(0, 23),
+        minutes=random.randint(0, 59),
+        seconds=random.randint(0, 59)
+    )
+    
+    transactions.append({
+        'transaction_id': i,
+        'account_id': account_id,
+        'customer_id': customer_id,
+        'branch_id': branch_id,
+        'channel_id': channel_id,
+        'amount': amount,
+        'type': txn_type,
+        'status': status,
+        'transaction_date': transaction_date.strftime('%Y-%m-%d %H:%M:%S')
+    })
 
-# ══════════════════════════════════════════════════════════════════
-# Summary
-# ══════════════════════════════════════════════════════════════════
-print("\n" + "=" * 60)
-print("  SELESAI! Semua dataset berhasil dibuat.")
-print("=" * 60)
-print(f"\n  Output: {os.path.abspath(OUTPUT_DIR)}/\n")
-sizes = [
-    ("branches.csv",    len(df_branches),    "-> dim_branch"),
-    ("channels.csv",    len(df_channels),    "-> dim_channel"),
-    ("dim_date.csv",    len(df_dates),       "-> dim_date  (2023-2025)"),
-    ("customers.csv",   len(df_customers),   "-> dim_customer"),
-    ("accounts.csv",    len(df_accounts),    "-> dim_account"),
-    ("transactions.csv",len(df_transactions),"-> fact_transactions (source)"),
-    ("fraud_labels.csv",len(df_fraud),       "-> fraud flag (~1%)"),
-]
-for fname, n, note in sizes:
-    print(f"  {fname:<22} {n:>7} rows  {note}")
+fact_transactions = pd.DataFrame(transactions)
+fact_transactions.to_csv('include/dataset/transactions.csv', index=False)
+print(f"   ✓ Generated {len(fact_transactions)} transaction records")
 
-print(f"\n  Dependency: pip install pandas")
-print(f"  Tidak perlu Faker / Kaggle — semua pure Python stdlib + pandas")
-print("\n  Next step:")
-print("  1. Letakkan folder dataset/ di root project Airflow")
-print("  2. Jalankan DAG: dag_banking_etl")
-print("  3. Cek hasil di PostgreSQL schema staging & dw")
-print("=" * 60)
+print("\n" + "=" * 50)
+print("✅ Dataset generation completed successfully!")
+print("\n📊 Summary:")
+print(f"   • dim_date: {len(dim_date)} records (2023-2025)")
+print(f"   • dim_customer: {len(dim_customer)} records")
+print(f"   • dim_branch: {len(dim_branch)} records")
+print(f"   • dim_channel: {len(dim_channel)} records")
+print(f"   • dim_account: {len(dim_account)} records")
+print(f"   • fact_transactions: {len(fact_transactions)} records")
+print(f"   • fraud_labels: {len(fraud_df)} records")
+print("\n📁 Files saved to: include/dataset/")
