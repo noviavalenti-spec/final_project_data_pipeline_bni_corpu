@@ -1,3 +1,6 @@
+# NOVIA VALENTINA
+---
+
 # Final Project Data Pipeline — Banking Transaction Analytics
 
 Repo ini berisi materi dan hands-on project **End-to-End ETL Pipeline dengan Apache Airflow v3 + PostgreSQL** menggunakan Docker Compose untuk kasus **Banking Transaction Analytics**.
